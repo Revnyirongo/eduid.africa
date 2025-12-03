@@ -75,6 +75,7 @@ class SamlController extends Controller
                 ['Content-Type' => 'text/plain']
             );
         } catch (Throwable $exception) {
+            error_log('Metadata generation failed: ' . $exception->getMessage());
             return new Response(
                 'Failed to generate SAML metadata.',
                 Response::HTTP_INTERNAL_SERVER_ERROR,
@@ -180,6 +181,12 @@ class SamlController extends Controller
     {
         $projectDir = $this->getParameter('kernel.project_dir');
         $configDir = $projectDir . '/conf/simplesamlphp';
+        $repoRootConfigDir = dirname($projectDir) . '/conf/simplesamlphp';
+
+        if (!is_dir($configDir) && is_dir($repoRootConfigDir)) {
+            // Symfony's project dir points to /app/app, but the config lives one level up in /app/conf.
+            $configDir = $repoRootConfigDir;
+        }
 
         if (!is_dir($configDir)) {
             throw new RuntimeException(sprintf(
@@ -198,7 +205,7 @@ class SamlController extends Controller
 
         $_SERVER['HTTPS'] = $request->isSecure() ? 'on' : 'off';
 
-        $include = $projectDir . '/app/vendor/simplesamlphp/simplesamlphp/www/_include.php';
+        $include = $projectDir . '/vendor/simplesamlphp/simplesamlphp/www/_include.php';
         if (!file_exists($include)) {
             throw new RuntimeException(sprintf(
                 'SimpleSAMLphp bootstrap file missing at "%s".',
@@ -216,7 +223,7 @@ class SamlController extends Controller
         string $idpEntityId
     ): array {
         $metaArray = [
-            'metadata-set' => 'saml20-idp-remote',
+            'metadata-set' => 'saml20-idp-hosted',
             'entityid' => $idpEntityId,
         ];
 
