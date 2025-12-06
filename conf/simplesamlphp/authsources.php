@@ -2,9 +2,12 @@
 
 use Doctrine\Common\Annotations\AnnotationRegistry;
 
-require_once('/app/vendor/simplesamlphp/simplesamlphp/www/_include.php');
+$projectRoot = dirname(__DIR__, 2); // /app
+$vendorDir = $projectRoot . '/app/vendor';
 
-$loader = require '/app/vendor/autoload.php';
+require_once $vendorDir . '/simplesamlphp/simplesamlphp/www/_include.php';
+
+$loader = require $vendorDir . '/autoload.php';
 
 AnnotationRegistry::registerLoader(array($loader, 'loadClass'));
 
