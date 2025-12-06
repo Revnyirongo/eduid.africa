@@ -4,10 +4,9 @@
  * 
  */
 
-// Detect scheme and host dynamically so multi-tenant hosts build correct URLs
-$scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
-$detectedHost = $_SERVER['HTTP_HOST'] ?? 'localhost:8080';
-$base = $scheme . '://' . $detectedHost . '/';
+// Force public HTTPS scheme; use incoming Host for multi-tenant subdomains and expose SimpleSAMLphp under /simplesaml/
+$detectedHost = $_SERVER['HTTP_HOST'] ?? 'eduid.africa';
+$base = 'https://' . $detectedHost . '/simplesaml/';
 
 $hostWithoutPort = strtolower(preg_replace('/:\\d+$/', '', $detectedHost));
 $trustedDomains = array('eduid.africa');
@@ -59,7 +58,7 @@ $config = array(
      * external url, no matter where you come from (direct access or via the
      * reverse proxy).
      */
-    'baseurlpath' => '/',
+    'baseurlpath' => $base,
     'certdir' => $certDirectory,
     'loggingdir' => '/tmp/',
     'datadir' => 'data/',
@@ -377,7 +376,7 @@ $config = array(
      * through https. If the user can access the service through
      * both http and https, this must be set to FALSE.
      */
-    'session.cookie.secure' => false,
+    'session.cookie.secure' => true,
 
     /*
      * Enable secure POST from HTTPS to HTTP.

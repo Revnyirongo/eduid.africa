@@ -137,14 +137,29 @@ class IdpController extends AppController
             $create = true;
         }
 
-        // check and refresh uploaded logo to local webdir
-        $logo_filename = $idp->getLogo();
-        $logo_path = $this->get('kernel')->getRootDir().'/../web/images/idp_logo/';
+        // Sync uploaded logo from remote storage to local web dir so the UI can render it
+        $logoFilename = ltrim((string) $idp->getLogo(), '/\\');
+        $logoBasePath = $this->get('kernel')->getRootDir() . '/../web/images/idp_logo/';
 
-        if ($logo_filename && !is_file($logo_path.$logo_filename)) {
-            $filesystem = $this->get('oneup_flysystem.logos_filesystem');
-            $contents = $filesystem->read($logo_filename);
-            file_put_contents($logo_path.$logo_filename, $contents);
+        if ($logoFilename !== '' && strpos($logoFilename, '..') === false) {
+            $localLogoPath = $logoBasePath . $logoFilename;
+
+            if (!is_file($localLogoPath)) {
+                try {
+                    $filesystem = $this->get('oneup_flysystem.logos_filesystem');
+                    $contents = $filesystem->read($logoFilename);
+
+                    $fs = new Filesystem();
+                    $fs->mkdir(dirname($localLogoPath));
+                    $fs->dumpFile($localLogoPath, $contents);
+                } catch (\Exception $e) {
+                    $this->get('logger')->warning('Unable to refresh IdP logo locally', [
+                        'idp' => $idp->getId(),
+                        'logo' => $logoFilename,
+                        'error' => $e->getMessage(),
+                    ]);
+                }
+            }
         }
 
         $form = $this->createForm(IdPEditType::class, $idp);
@@ -665,7 +680,7 @@ class IdpController extends AppController
         try {
             $em = $this->getDoctrine()->getManager();
             $idp = $em->getRepository('AppBundle:IdP')->find($request->get('idpid'));
-            $filename = $idp->getLogo();
+            $filename = ltrim((string) $idp->getLogo(), '/\\');
             $idp->setLogo(false);
             $em->persist($idp);
             $em->flush();
@@ -674,12 +689,22 @@ class IdpController extends AppController
         }
 
         try {
-            $fs = new Filesystem();
-            $oneup_config = $this->container->getParameter('oneup_uploader.config.idplogos');
-            $directory = $oneup_config['storage']['directory'];
-            $fs->remove($directory.'/'.$filename);
+            if ($filename !== '' && strpos($filename, '..') === false) {
+                $remoteFilesystem = $this->get('oneup_flysystem.logos_filesystem');
+                if ($remoteFilesystem->has($filename)) {
+                    $remoteFilesystem->delete($filename);
+                }
+
+                $fs = new Filesystem();
+                $localPath = $this->get('kernel')->getRootDir().'/../web/images/idp_logo/'.$filename;
+                $fs->remove($localPath);
+            }
         } catch (\Exception $e) {
-            $this->get('logger')->warning('Cant remove idp logo. IdP id: '.$idp->getId().' exception message:  '.$e->getMessage);
+            $this->get('logger')->warning('Cant remove idp logo.', [
+                'idp' => $idp->getId(),
+                'logo' => $filename,
+                'error' => $e->getMessage(),
+            ]);
         }
 
         return new JsonResponse(array('success' => true, 'message' => 'Logo removed.'));

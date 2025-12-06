@@ -74,7 +74,12 @@ class UploadListener
         switch ($event->getType()) {
             case 'idplogos':
                 //TODO owner validation
-                $idp->setLogo($event->getFile()->getPath());
+                $logoPath = ltrim($event->getFile()->getPath(), '/\\');
+                if (strpos($logoPath, '..') !== false) {
+                    throw new \RuntimeException('Invalid logo path received from upload.');
+                }
+
+                $idp->setLogo($logoPath);
                 $this->om->persist($idp);
                 $this->om->flush();
                 break;

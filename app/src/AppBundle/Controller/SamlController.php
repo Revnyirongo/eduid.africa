@@ -22,13 +22,11 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Throwable;
 
-/**
- * @Route("/saml")
- */
 class SamlController extends Controller
 {
     /**
      * @Route("/metadata", name="app_saml_metadata")
+     * @Route("/saml/metadata", name="app_saml_metadata_prefixed")
      * @Method("GET")
      */
     public function metadataAction(Request $request)
@@ -86,6 +84,7 @@ class SamlController extends Controller
 
     /**
      * @Route("/saml2/idp/metadata.php", name="app_saml_metadata_legacy")
+     * @Route("/saml/saml2/idp/metadata.php", name="app_saml_metadata_legacy_prefixed")
      * @Method("GET")
      */
     public function metadataLegacyAction(Request $request)
@@ -95,6 +94,7 @@ class SamlController extends Controller
 
     /**
      * @Route("/sso", name="app_saml_sso")
+     * @Route("/saml/sso", name="app_saml_sso_prefixed")
      * @Method({"GET", "POST"})
      */
     public function ssoAction(Request $request)
@@ -126,6 +126,7 @@ class SamlController extends Controller
 
     /**
      * @Route("/logout", name="app_saml_logout")
+     * @Route("/saml/logout", name="app_saml_logout_prefixed")
      * @Method({"GET", "POST"})
      */
     public function singleLogoutAction(Request $request)
@@ -161,6 +162,7 @@ class SamlController extends Controller
 
     /**
      * @Route("/saml2/idp/SSOService.php", name="app_saml_sso_legacy")
+     * @Route("/saml/saml2/idp/SSOService.php", name="app_saml_sso_legacy_prefixed")
      * @Method({"GET", "POST"})
      */
     public function ssoLegacyAction(Request $request)
@@ -170,6 +172,7 @@ class SamlController extends Controller
 
     /**
      * @Route("/saml2/idp/SingleLogoutService.php", name="app_saml_logout_legacy")
+     * @Route("/saml/saml2/idp/SingleLogoutService.php", name="app_saml_logout_legacy_prefixed")
      * @Method({"GET", "POST"})
      */
     public function singleLogoutLegacyAction(Request $request)
