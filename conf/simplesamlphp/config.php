@@ -4,6 +4,14 @@
  * 
  */
 
+// Honor forwarded HTTPS from the proxy so SimpleSAML sees the request as secure
+if (!isset($_SERVER['HTTPS']) && (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https')) {
+    $_SERVER['HTTPS'] = 'on';
+    if (isset($_SERVER['HTTP_X_FORWARDED_PORT'])) {
+        $_SERVER['SERVER_PORT'] = $_SERVER['HTTP_X_FORWARDED_PORT'];
+    }
+}
+
 // Force public HTTPS scheme; use incoming Host for multi-tenant subdomains and expose SimpleSAMLphp under /simplesaml/
 $detectedHost = $_SERVER['HTTP_HOST'] ?? 'eduid.africa';
 $base = 'https://' . $detectedHost . '/simplesaml/';
