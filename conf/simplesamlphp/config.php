@@ -4,11 +4,16 @@
  * 
  */
 
-// Honor forwarded HTTPS from the proxy so SimpleSAML sees the request as secure
-if (!isset($_SERVER['HTTPS']) && (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https')) {
-    $_SERVER['HTTPS'] = 'on';
-    if (isset($_SERVER['HTTP_X_FORWARDED_PORT'])) {
-        $_SERVER['SERVER_PORT'] = $_SERVER['HTTP_X_FORWARDED_PORT'];
+// Honor forwarded HTTPS from the proxy so SimpleSAML sees the request as secure.
+// Default to HTTPS because we terminate TLS at nginx before handing to PHP.
+if (empty($_SERVER['HTTPS']) || $_SERVER['HTTPS'] === 'off') {
+    if (!empty($_SERVER['HTTP_X_FORWARDED_PROTO']) && strtolower($_SERVER['HTTP_X_FORWARDED_PROTO']) === 'https') {
+        $_SERVER['HTTPS'] = 'on';
+        $_SERVER['SERVER_PORT'] = !empty($_SERVER['HTTP_X_FORWARDED_PORT']) ? $_SERVER['HTTP_X_FORWARDED_PORT'] : 443;
+    } else {
+        // Fallback to treat requests as secure when coming through the local proxy
+        $_SERVER['HTTPS'] = 'on';
+        $_SERVER['SERVER_PORT'] = 443;
     }
 }
 
