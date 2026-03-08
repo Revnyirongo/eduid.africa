@@ -55,12 +55,28 @@
         group: "{{ app_user }}"
         mode: "0755"
 
+    - name: Ensure SSH directory exists for app user
+      file:
+        path: "/home/{{ app_user }}/.ssh"
+        state: directory
+        owner: "{{ app_user }}"
+        group: "{{ app_user }}"
+        mode: "0700"
+
+    - name: Trust GitLab host key for app user
+      known_hosts:
+        path: "/home/{{ app_user }}/.ssh/known_hosts"
+        name: gitlab.ubuntunet.net
+        key: "{{ lookup('pipe', 'ssh-keyscan -H gitlab.ubuntunet.net 2>/dev/null') }}"
+      become_user: "{{ app_user }}"
+
     - name: Clone repo
       git:
         repo: "{{ repo_url }}"
         dest: "{{ app_dir }}/repo"
         version: "{{ repo_version }}"
         force: true
+        accept_hostkey: true
       become_user: "{{ app_user }}"
 
     - name: Write .env
