@@ -1,19 +1,19 @@
 app_user: ubuntu
 app_dir: /opt/managed-idp
-repo_url: https://github.com/Revnyirongo/eduid.africa
-repo_version: main
+repo_url: git@gitlab.ubuntunet.net:services/managed-idp.git
+repo_version: migration/managed-idp
 
 # Choose stack file
 compose_file: docker-compose.modern.yml
 
 # Domain configuration
-idp_base_domain: example.com
-idp_tenant: idpuni
+idp_base_domain: ubuntunet.net
+idp_tenant: test
 idp_common_name: "{{ idp_tenant }}.{{ idp_base_domain }}"
 
 # Ports
-http_port: 8080
-https_port: 8443
+http_port: 80
+https_port: 443
 
 # Database
 postgres_user: samlidp
