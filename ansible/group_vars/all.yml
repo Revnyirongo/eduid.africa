@@ -43,3 +43,8 @@ cert_days: 825
 
 # Proxies
 trusted_proxies: "127.0.0.1,::1,172.16.0.0/12"
+
+# Docker daemon DNS (helps when container build cannot resolve apt/GitHub hosts)
+docker_dns_servers:
+  - "1.1.1.1"
+  - "8.8.8.8"
