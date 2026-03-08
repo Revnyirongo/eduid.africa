@@ -1,35 +1,22 @@
 <?php
 
-use Doctrine\Common\Annotations\AnnotationRegistry;
+$container = require __DIR__ . '/../bootstrap_symfony.php';
+$sspgetter = $container->get(\App\Utils\SSPGetter::class);
 
-$projectRoot = dirname(__DIR__, 3); // /app
-$vendorDir = $projectRoot . '/app/vendor';
+$metadata = $sspgetter->getSaml20spremoteForAnIdp($_SERVER['HTTP_HOST'] ?? '');
 
-require_once $vendorDir . '/simplesamlphp/simplesamlphp/www/_include.php';
-
-$loader = require $vendorDir . '/autoload.php';
-
-AnnotationRegistry::registerLoader(array($loader, 'loadClass'));
-
-$kernel = new AppKernel('prod', true);
-$kernel->boot();
-$container = $kernel->getContainer();
-$sspgetter = $container->get('appbundle.sspgetter');
-
-$metadata = $sspgetter->getSaml20spremoteForAnIdp($_SERVER['HTTP_HOST']);
-
-$metadata['https://attributes.'.$sspgetter->getSamlidpHostname().'/module.php/saml/sp/metadata.php/default-sp'] = array(
+$metadata['https://attributes.' . $sspgetter->getSamlidpHostname() . '/simplesaml/module.php/saml/sp/metadata.php/default-sp'] = array(
   'SingleLogoutService' => array(
     0 => array(
       'Binding' => 'urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect',
-      'Location' => 'https://attributes.'.$sspgetter->getSamlidpHostname().'/module.php/saml/sp/saml2-logout.php/default-sp',
+      'Location' => 'https://attributes.' . $sspgetter->getSamlidpHostname() . '/simplesaml/module.php/saml/sp/saml2-logout.php/default-sp',
     ),
   ),
   'AssertionConsumerService' => array(
     0 => array(
       'index' => 0,
       'Binding' => 'urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST',
-      'Location' => 'https://attributes.'.$sspgetter->getSamlidpHostname().'/module.php/saml/sp/saml2-acs.php/default-sp',
+      'Location' => 'https://attributes.' . $sspgetter->getSamlidpHostname() . '/simplesaml/module.php/saml/sp/saml2-acs.php/default-sp',
     ),
   ),
   'attributes' => array(
@@ -44,7 +31,7 @@ $metadata['https://attributes.'.$sspgetter->getSamlidpHostname().'/module.php/sa
         'urn:oasis:names:tc:SAML:attribute:subject-id'
   ),
   'name' => array(
-      'en' => $sspgetter->getSamlidpHostname().' - attribute releasing tester',
+      'en' => $sspgetter->getSamlidpHostname() . ' - attribute releasing tester',
   ),
   'certificate' => 'attributes.' . $sspgetter->getSamlidpHostname() . '.crt'
 );

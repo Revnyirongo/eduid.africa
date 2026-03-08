@@ -49,8 +49,21 @@ if (!empty($extraTrusted)) {
 $trustedDomains = array_values(array_unique(array_filter($trustedDomains)));
 
 $projectRoot = dirname(dirname(__DIR__));
-$certDirectory = $projectRoot . '/certs';
-if (!is_dir($certDirectory)) {
+$certDirectoryCandidates = array(
+    $projectRoot . '/certs',
+    dirname($projectRoot) . '/certs',
+    '/var/www/certs',
+    '/app/certs',
+);
+$certDirectory = null;
+foreach ($certDirectoryCandidates as $candidate) {
+    if (is_dir($candidate)) {
+        $certDirectory = $candidate;
+        break;
+    }
+}
+if ($certDirectory === null) {
+    $certDirectory = $projectRoot . '/certs';
     @mkdir($certDirectory, 0700, true);
 }
 
@@ -74,7 +87,7 @@ $config = array(
     'baseurlpath' => $base,
     'certdir' => $certDirectory,
     'loggingdir' => '/tmp/',
-    'datadir' => 'data/',
+    'datadir' => '/tmp/simplesaml-data',
     'metadatadir' => __DIR__ . '/metadata',
 
     /*
@@ -93,7 +106,7 @@ $config = array(
      * Note: The messages are logged with the DEBUG log level, so you also need to set
      * the 'logging.level' option to LOG_DEBUG.
      */
-    'debug' => true,
+    'debug' => null,
 
     /*
      * When showerrors is enabled, all error messages and stack traces will be output
@@ -145,7 +158,8 @@ $config = array(
      * also as the technical contact in generated metadata.
      */
     // 'technicalcontact_name' => 'NIIF AAI',
-    // 'technicalcontact_email' => 'aai@niif.hu',
+    'technicalcontact_email' => getenv('TECHNICALCONTACT_EMAIL') ?: 'admin@example.org',
+    'technicalcontact_name' => getenv('TECHNICALCONTACT_NAME') ?: 'Managed IdP Admin',
 
     /*
      * The timezone of the server. This option should be set to the timezone you want
@@ -172,7 +186,7 @@ $config = array(
      *
      */
     'logging.level' => SimpleSAML\Logger::DEBUG,
-    'logging.handler' => 'syslog',
+    'logging.handler' => getenv('SIMPLESAMLPHP_LOG_HANDLER') ?: 'file',
 
     /*
      * Specify the format of the logs. Its use varies depending on the log handler used (for instance, you cannot
@@ -223,7 +237,7 @@ $config = array(
 
     /* Logging: file - Logfilename in the loggingdir from above.
      */
-    'logging.logfile' => 'simplesamlphp.log',
+    'logging.logfile' => getenv('SIMPLESAMLPHP_LOG_FILE') ?: 'simplesamlphp.log',
 
     /* (New) statistics output configuration.
      *
@@ -328,6 +342,9 @@ $config = array(
      * ),
      *
      */
+    'module.enable' => array(
+        'sqlauth' => true,
+    ),
 
     /*
      * This value is the duration of the session in seconds. Make sure that the time duration of

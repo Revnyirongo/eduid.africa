@@ -1,0 +1,45 @@
+app_user: ubuntu
+app_dir: /opt/managed-idp
+repo_url: https://github.com/Revnyirongo/eduid.africa
+repo_version: main
+
+# Choose stack file
+compose_file: docker-compose.modern.yml
+
+# Domain configuration
+idp_base_domain: example.com
+idp_tenant: idpuni
+idp_common_name: "{{ idp_tenant }}.{{ idp_base_domain }}"
+
+# Ports
+http_port: 8080
+https_port: 8443
+
+# Database
+postgres_user: samlidp
+postgres_password: change_me
+postgres_db: samlidp
+
+# App
+app_env: prod
+app_debug: "0"
+app_secret: change_this_to_a_long_random_value
+
+# Seeding (prod should be 0)
+run_db_migrations: "1"
+run_schema_update: "1"
+run_db_seed: "0"
+run_admin_seed: "0"
+run_symfony_build: "0"
+composer_install: auto
+
+# SimpleSAML logging
+simplesaml_log_handler: file
+simplesaml_log_file: simplesamlphp.log
+
+# TLS
+generate_self_signed: true
+cert_days: 825
+
+# Proxies
+trusted_proxies: "127.0.0.1,::1,172.16.0.0/12"

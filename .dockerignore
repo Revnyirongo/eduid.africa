@@ -1,5 +1,7 @@
 app/var
 app/vendor
+app-modern/var
+app-modern/vendor
 app/web/assetic/
 app/web/css/
 app/web/fonts/

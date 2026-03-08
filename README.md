@@ -13,8 +13,9 @@ This repository contains the simplified code of samlidp.io. It is focused on wha
 1. `make env`
 2. `make certs`
 3. `make up`
-4. Visit http://localhost:8080/health and http://localhost:8080/saml/metadata
-5. `make test`
+4. Visit https://localhost:8443/health and https://idpuni.localhost:8443/saml/metadata
+5. Open https://attributes.localhost:8443/simplesaml/module.php/core/authenticate.php?as=default-sp and sign in with `demo` / `demo123`.
+6. `make test`
 
 The compose stack builds a PHP 7.3 container, installs composer dependencies on boot, waits for PostgreSQL, runs lightweight SQL migrations, seeds a demo user, and finally serves the Symfony app on `0.0.0.0:8080`.
 
@@ -54,7 +55,7 @@ The command above generates `certs/exampleidp.eduid.africa/idp.crt.pem` and `idp
 3. Import that metadata into an external SP tester such as [samltest.id](https://samltest.id). The tester will use `SAML_IDP_ENTITY_ID` and `SAML_IDP_SSO_URL` directly.
 4. Update `.env` to point `SAML_IDP_ENTITY_ID` / `SAML_IDP_SSO_URL` to routable addresses if you are testing off-machine, then restart with `make down && make up`.
 
-The SSO endpoint currently returns a stub response clarifying how to wire a real SimpleSAMLphp flow; extend it as needed for end-to-end testing.
+The SSO endpoint is backed by SimpleSAMLphp, so you can either test against the bundled SP above or plug in an external SP with the exported metadata.
 
 ## Make Targets
 
@@ -78,6 +79,27 @@ The SSO endpoint currently returns a stub response clarifying how to wire a real
 - **Migrations fail** – Remove the database volume with `make down` (which drops volumes) and start again.
 - **Certificates missing** – Run `make certs` for the default pair, or `./scripts/gencerts.sh <tenant-host>` to create per-tenant material under `certs/<tenant-host>/` before booting the stack.
 - **Composer install problems** – Clean the Composer cache volume with `docker volume rm samlidp_composer-cache` and start again. Network access is required the first time dependencies are installed.
+
+## Production Hardening Checklist
+
+1. Set `APP_ENV=prod` and `APP_DEBUG=0` in `.env`.
+2. Generate real TLS certificates for each tenant hostname and remove self-signed certs.
+3. Set `SAMLIDP_HOSTNAME` to your public base domain and verify DNS for every tenant host.
+4. Replace all demo credentials and set strong `SEED_IDP_USER_*` values for the initial admin login.
+5. Run one-time seeds and then disable with `RUN_DB_SEED=0` and `RUN_ADMIN_SEED=0`.
+6. Enable log forwarding by setting `SIMPLESAMLPHP_LOG_HANDLER=syslog` (or ship `/tmp/simplesamlphp.log` to your log stack).
+7. Configure `TRUSTED_PROXIES` for your load balancer and terminate TLS at the edge.
+8. Back up the database and verify restores before going live.
+
+## Production Compose Template
+
+Use the modern stack file:
+
+```bash
+docker compose -f docker-compose.modern.yml up -d --build
+```
+
+If you run an external database, remove the `db` service from `docker-compose.modern.yml` and point `DATABASE_URL` at your managed PostgreSQL instance.
 
 ## Legacy Deployment Notes
 

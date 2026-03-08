@@ -21,6 +21,11 @@ if ! command -v openssl >/dev/null 2>&1; then
   exit 1
 fi
 
+if [ -f "${CERT_DIR}/idp.crt" ] && [ -f "${CERT_DIR}/idp.key" ] && [ "${FORCE_CERTS:-0}" != "1" ]; then
+  echo "Certificate already exists at ${CERT_DIR}/idp.crt (set FORCE_CERTS=1 to regenerate)."
+  exit 0
+fi
+
 openssl req -x509 -nodes -newkey rsa:2048 \
   -keyout "${CERT_DIR}/idp.key" \
   -out "${CERT_DIR}/idp.crt" \

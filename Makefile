@@ -1,3 +1,5 @@
+.PHONY: env certs tenant-cert up down logs sh test fmt lint
+
 env:
 	@test -f .env || cp .env.example .env
 
@@ -12,22 +14,22 @@ tenant-cert:
 	./scripts/gencerts.sh $(host) $(extra)
 
 up:
-	docker compose up --build
+	docker compose -f docker-compose.modern.yml up --build
 
 down:
-	docker compose down -v
+	docker compose -f docker-compose.modern.yml down -v
 
 logs:
-	docker compose logs -f app
+	docker compose -f docker-compose.modern.yml logs -f app
 
 sh:
-	docker compose exec app /bin/bash
+	docker compose -f docker-compose.modern.yml exec app /bin/sh
 
 test:
-	docker compose exec -e APP_ENV=test -e APP_DEBUG=1 -e SYMFONY_DEPRECATIONS_HELPER=weak app ./vendor/bin/simple-phpunit
+	docker compose -f docker-compose.modern.yml exec -e APP_ENV=test -e APP_DEBUG=1 -e SYMFONY_DEPRECATIONS_HELPER=weak app ./vendor/bin/simple-phpunit
 
 fmt:
-	docker compose exec app ./vendor/bin/phpcbf
+	docker compose -f docker-compose.modern.yml exec app ./vendor/bin/phpcbf
 
 lint:
-	docker compose exec app ./vendor/bin/phpcs
+	docker compose -f docker-compose.modern.yml exec app ./vendor/bin/phpcs

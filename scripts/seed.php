@@ -12,6 +12,17 @@ try {
     exit(1);
 }
 
+$tableExists = function (PDO $pdo, $table) {
+    $stmt = $pdo->prepare("SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = :table LIMIT 1");
+    $stmt->execute(['table' => $table]);
+    return (bool) $stmt->fetchColumn();
+};
+
+if (!$tableExists($pdo, 'users')) {
+    fwrite(STDOUT, "Users table not found; skipping seed.\n");
+    exit(0);
+}
+
 $username = getenv('SEED_USER_USERNAME') ?: 'demo';
 $email = getenv('SEED_USER_EMAIL') ?: 'demo@example.org';
 $displayName = getenv('SEED_USER_DISPLAY_NAME') ?: 'Demo User';
@@ -27,6 +38,14 @@ $stmt->execute([
 ]);
 
 echo "Seeded user '{$username}'.\n";
+
+$requiredIdpTables = ['idp', 'organization_element', 'domain', 'scope'];
+foreach ($requiredIdpTables as $table) {
+    if (!$tableExists($pdo, $table)) {
+        fwrite(STDOUT, "Table '{$table}' not found; skipping IdP seed.\n");
+        exit(0);
+    }
+}
 
 $idpSlug = getenv('SEED_IDP_HOSTNAME') ?: '';
 $baseHost = getenv('SAMLIDP_HOSTNAME') ?: '';
@@ -135,6 +154,40 @@ try {
             'scope_id' => $scopeId,
             'id' => $idpId,
         ]);
+    }
+
+    $idpUserUsername = getenv('SEED_IDP_USER_USERNAME') ?: 'demo';
+    $idpUserEmail = getenv('SEED_IDP_USER_EMAIL') ?: 'demo@example.org';
+    $idpUserPassword = getenv('SEED_IDP_USER_PASSWORD') ?: 'demo123';
+    $idpUserGivenName = getenv('SEED_IDP_USER_GIVEN_NAME') ?: 'Demo';
+    $idpUserSurname = getenv('SEED_IDP_USER_SURNAME') ?: 'User';
+    $idpUserDisplayName = getenv('SEED_IDP_USER_DISPLAY_NAME') ?: 'Demo User';
+    $idpUserAffiliation = getenv('SEED_IDP_USER_AFFILIATION') ?: 'member';
+
+    if ($scopeId !== false && $scopeId !== null) {
+        $userExists = $pdo->prepare('SELECT 1 FROM idp_internal_mysql_user WHERE username = :username AND idp_id = :idp_id');
+        $userExists->execute([
+            'username' => $idpUserUsername,
+            'idp_id' => $idpId,
+        ]);
+
+        if ($userExists->fetchColumn() === false) {
+            $insertUser = $pdo->prepare(
+                "INSERT INTO idp_internal_mysql_user (id, scope_id, idp_id, username, password, email, givenName, surName, display_name, affiliation, enabled, deleted)
+                 VALUES (nextval('idp_internal_mysql_user_id_seq'), :scope_id, :idp_id, :username, :password, :email, :givenname, :surname, :display_name, :affiliation, true, false)"
+            );
+            $insertUser->execute([
+                'scope_id' => $scopeId,
+                'idp_id' => $idpId,
+                'username' => $idpUserUsername,
+                'password' => $idpUserPassword,
+                'email' => $idpUserEmail,
+                'givenname' => $idpUserGivenName,
+                'surname' => $idpUserSurname,
+                'display_name' => $idpUserDisplayName,
+                'affiliation' => $idpUserAffiliation,
+            ]);
+        }
     }
 
     $pdo->commit();

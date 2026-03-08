@@ -27,6 +27,11 @@ CERT_ROOT="${PROJECT_ROOT}/certs/${HOST_PRIMARY}"
 umask 077
 mkdir -p "${CERT_ROOT}"
 
+if [ -f "${CERT_ROOT}/idp.crt.pem" ] && [ -f "${CERT_ROOT}/idp.key.pem" ] && [ "${FORCE_CERTS:-0}" != "1" ]; then
+  echo "Certificate already exists at ${CERT_ROOT}/idp.crt.pem (set FORCE_CERTS=1 to regenerate)."
+  exit 0
+fi
+
 OPENSSL_CONFIG="$(mktemp)"
 trap 'rm -f "${OPENSSL_CONFIG}"' EXIT
 
