@@ -10,12 +10,20 @@ deploy_idp:
   image: python:3.12-slim
   rules:
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
-      when: manual
+      when: on_success
   before_script:
     - apt-get update && apt-get install -y --no-install-recommends openssh-client git
     - pip install --no-cache-dir ansible
     - mkdir -p ~/.ssh && chmod 700 ~/.ssh
-    - printf '%s' "$SSH_PRIVATE_KEY_B64" | base64 -d > ~/.ssh/id_ed25519
+    - |
+      if [ -n "${SSH_PRIVATE_KEY_B64:-}" ]; then
+        printf '%s' "$SSH_PRIVATE_KEY_B64" | tr -d '\r\n ' | base64 -d > ~/.ssh/id_ed25519
+      elif [ -n "${SSH_PRIVATE_KEY:-}" ]; then
+        printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519
+      else
+        echo "Missing SSH_PRIVATE_KEY_B64 or SSH_PRIVATE_KEY variable"
+        exit 1
+      fi
     - chmod 600 ~/.ssh/id_ed25519
     - ssh-keygen -y -f ~/.ssh/id_ed25519 >/dev/null
     - ssh-keyscan -H "$TARGET_HOST" >> ~/.ssh/known_hosts
