@@ -48,3 +48,7 @@ trusted_proxies: "127.0.0.1,::1,172.16.0.0/12"
 docker_dns_servers:
   - "1.1.1.1"
   - "8.8.8.8"
+
+# Disable BuildKit on remote host build if resolver issues occur in BuildKit sandbox
+docker_buildkit: "0"
+compose_docker_cli_build: "0"

@@ -134,6 +134,9 @@
       command: docker compose -f {{ compose_file }} up -d --build
       args:
         chdir: "{{ app_dir }}/repo"
+      environment:
+        DOCKER_BUILDKIT: "{{ docker_buildkit }}"
+        COMPOSE_DOCKER_CLI_BUILD: "{{ compose_docker_cli_build }}"
       register: compose_up
       retries: 3
       delay: 20
