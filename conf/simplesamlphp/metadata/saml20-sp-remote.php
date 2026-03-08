@@ -1,0 +1,39 @@
+<?php
+
+$container = require __DIR__ . '/../bootstrap_symfony.php';
+$sspgetter = $container->get(\App\Utils\SSPGetter::class);
+
+$metadata = $sspgetter->getSaml20spremoteForAnIdp($_SERVER['HTTP_HOST'] ?? '');
+
+$metadata['https://attributes.' . $sspgetter->getSamlidpHostname() . '/simplesaml/module.php/saml/sp/metadata.php/default-sp'] = array(
+  'SingleLogoutService' => array(
+    0 => array(
+      'Binding' => 'urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect',
+      'Location' => 'https://attributes.' . $sspgetter->getSamlidpHostname() . '/simplesaml/module.php/saml/sp/saml2-logout.php/default-sp',
+    ),
+  ),
+  'AssertionConsumerService' => array(
+    0 => array(
+      'index' => 0,
+      'Binding' => 'urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST',
+      'Location' => 'https://attributes.' . $sspgetter->getSamlidpHostname() . '/simplesaml/module.php/saml/sp/saml2-acs.php/default-sp',
+    ),
+  ),
+  'attributes' => array(
+        'urn:oid:1.3.6.1.4.1.5923.1.1.1.6',
+        'urn:oid:2.16.840.1.113730.3.1.241',
+        'urn:oid:0.9.2342.19200300.100.1.3',
+        'urn:oid:1.3.6.1.4.1.5923.1.1.1.9',
+        'urn:oid:1.3.6.1.4.1.5923.1.1.1.10',
+        'urn:oid:1.3.6.1.4.1.25178.1.2.9',
+        'urn:oid:2.5.4.10',
+        'urn:oasis:names:tc:SAML:attribute:pairwise-id',
+        'urn:oasis:names:tc:SAML:attribute:subject-id'
+  ),
+  'name' => array(
+      'en' => $sspgetter->getSamlidpHostname() . ' - attribute releasing tester',
+  ),
+  'certificate' => 'attributes.' . $sspgetter->getSamlidpHostname() . '.crt'
+);
+
+return $metadata;
