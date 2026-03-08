@@ -16,10 +16,11 @@ deploy_idp:
     - pip install --no-cache-dir ansible
     - mkdir -p ~/.ssh && chmod 700 ~/.ssh
     - |
-      if [ -n "${SSH_PRIVATE_KEY_B64:-}" ]; then
-        printf '%s' "$SSH_PRIVATE_KEY_B64" | tr -d '\r\n ' | base64 -d > ~/.ssh/id_ed25519
+      if [ -n "${SSH_PRIVATE_KEY_B64:-}" ] && printf '%s' "$SSH_PRIVATE_KEY_B64" | tr -d '\r\n ' | base64 -d > ~/.ssh/id_ed25519 2>/dev/null; then
+        echo "Loaded SSH key from SSH_PRIVATE_KEY_B64"
       elif [ -n "${SSH_PRIVATE_KEY:-}" ]; then
         printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519
+        echo "Loaded SSH key from SSH_PRIVATE_KEY"
       else
         echo "Missing SSH_PRIVATE_KEY_B64 or SSH_PRIVATE_KEY variable"
         exit 1
