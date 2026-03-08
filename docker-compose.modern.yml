@@ -1,5 +1,3 @@
-version: "3.9"
-
 services:
   nginx:
     image: nginx:1.25-alpine
@@ -16,6 +14,7 @@ services:
     build:
       context: .
       dockerfile: docker/modern/app/Dockerfile
+      network: host
     env_file: .env
     environment:
       APP_ENV: ${APP_ENV:-prod}

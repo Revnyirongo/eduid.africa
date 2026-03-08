@@ -134,6 +134,10 @@
       command: docker compose -f {{ compose_file }} up -d --build
       args:
         chdir: "{{ app_dir }}/repo"
+      register: compose_up
+      retries: 3
+      delay: 20
+      until: compose_up.rc == 0
 
   handlers:
     - name: Restart Docker
