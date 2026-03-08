@@ -1,7 +1,7 @@
 app_user: ubuntu
 app_dir: /opt/managed-idp
 repo_url: git@gitlab.ubuntunet.net:services/managed-idp.git
-repo_version: migration/managed-idp
+repo_version: main
 
 # Choose stack file
 compose_file: docker-compose.modern.yml
