@@ -137,10 +137,6 @@
       environment:
         DOCKER_BUILDKIT: "{{ docker_buildkit }}"
         COMPOSE_DOCKER_CLI_BUILD: "{{ compose_docker_cli_build }}"
-      register: compose_up
-      retries: 3
-      delay: 20
-      until: compose_up.rc == 0
 
   handlers:
     - name: Restart Docker

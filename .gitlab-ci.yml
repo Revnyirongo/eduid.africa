@@ -8,6 +8,7 @@
 deploy_idp:
   stage: deploy
   image: python:3.12-slim
+  timeout: 2h
   rules:
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
       when: on_success
@@ -22,5 +23,6 @@ deploy_idp:
     - ssh-keyscan -H "$TARGET_HOST" >> ~/.ssh/known_hosts
     - ssh -i ~/.ssh/id_ed25519 -o BatchMode=yes "$TARGET_USER@$TARGET_HOST" "hostname"
     - printf "[managed_idp]\n%s ansible_user=%s\n" "$TARGET_HOST" "$TARGET_USER" > ansible/inventory.ci.ini
+    - export ANSIBLE_SSH_ARGS='-o ServerAliveInterval=30 -o ServerAliveCountMax=120 -o TCPKeepAlive=yes'
   script:
     - ansible-playbook -i ansible/inventory.ci.ini ansible/playbook.yml
