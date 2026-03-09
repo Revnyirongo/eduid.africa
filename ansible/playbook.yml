@@ -53,13 +53,38 @@
         state: directory
         mode: "0755"
 
+    - name: Detect upstream DNS servers from systemd-resolved
+      command: awk '/^nameserver / { print $2 }' /run/systemd/resolve/resolv.conf
+      register: detected_dns
+      changed_when: false
+      failed_when: false
+
+    - name: Compute effective Docker DNS servers
+      set_fact:
+        docker_dns_effective: >-
+          {{
+            (
+              (docker_dns_servers if (docker_dns_servers is defined and (docker_dns_servers | length > 0)) else (detected_dns.stdout_lines | default([])))
+              | reject('match', '^127\\.')
+              | reject('equalto', '::1')
+              | list
+            )
+          }}
+
+    - name: Ensure Docker DNS servers were discovered
+      assert:
+        that:
+          - docker_dns_effective | length > 0
+        fail_msg: >-
+          Could not determine usable DNS servers for Docker. Set docker_dns_servers in ansible/group_vars/all.yml.
+
     - name: Configure Docker daemon DNS servers
       copy:
         dest: /etc/docker/daemon.json
         mode: "0644"
         content: |
           {
-            "dns": {{ docker_dns_servers | to_json }}
+            "dns": {{ docker_dns_effective | to_json }}
           }
       notify: Restart Docker
 
@@ -72,6 +97,10 @@
 
     - name: Verify host DNS can resolve github.com
       command: getent hosts github.com
+      changed_when: false
+
+    - name: Verify Docker DNS can resolve github.com
+      command: docker run --rm --network host alpine:3.20 getent hosts github.com
       changed_when: false
 
     - name: Ensure app directory exists
