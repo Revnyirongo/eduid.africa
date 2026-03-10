@@ -96,12 +96,20 @@
       changed_when: false
 
     - name: Verify host DNS can resolve github.com
-      command: getent hosts github.com
+      command: getent ahostsv4 github.com
+      register: host_dns_check
       changed_when: false
+      retries: 3
+      delay: 5
+      until: host_dns_check.rc == 0
 
     - name: Verify Docker DNS can resolve github.com
-      command: docker run --rm --network host alpine:3.20 getent hosts github.com
+      command: docker run --rm --network host alpine:3.20 getent ahostsv4 github.com
+      register: docker_dns_check
       changed_when: false
+      retries: 3
+      delay: 5
+      until: docker_dns_check.rc == 0
 
     - name: Ensure app directory exists
       file:
