@@ -96,7 +96,7 @@
       changed_when: false
 
     - name: Verify host DNS can resolve github.com
-      command: getent ahostsv4 github.com
+      command: getent hosts github.com
       register: host_dns_check
       changed_when: false
       retries: 3
@@ -104,7 +104,7 @@
       until: host_dns_check.rc == 0
 
     - name: Verify Docker DNS can resolve github.com
-      command: docker run --rm --network host alpine:3.20 getent ahostsv4 github.com
+      command: docker run --rm --network host alpine:3.20 nslookup github.com
       register: docker_dns_check
       changed_when: false
       retries: 3
