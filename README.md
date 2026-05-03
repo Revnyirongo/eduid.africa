@@ -57,6 +57,54 @@ The command above generates `certs/exampleidp.eduid.africa/idp.crt.pem` and `idp
 
 The SSO endpoint is backed by SimpleSAMLphp, so you can either test against the bundled SP above or plug in an external SP with the exported metadata.
 
+## Brokered Login
+
+The local modern stack can now broker multiple upstream login methods into one IdP session for the same tenant host.
+
+- Config file: `conf/simplesamlphp/broker.php`
+- Built-in method types:
+  - `local` for the current SQL-backed login
+  - `saml` for an upstream institutional IdP
+  - `oidc` for Google now and Microsoft later
+- Multi-method tenants automatically use SimpleSAMLphp `multiauth`, so users can pick an upstream method while the downstream SPs still see one UbuntuNet IdP session.
+
+### Google Broker Setup
+
+1. Edit `conf/simplesamlphp/broker.php`.
+2. Under your tenant slug, enable the `google` method.
+3. Set `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` in `.env`.
+4. Rebuild and restart the stack.
+
+Google callback URL format:
+
+`https://<tenant>.<base-domain>/simplesaml/module.php/ubuntunetbroker/oidc/callback.php`
+
+Example for production:
+
+`https://ubuntunet.eduid.africa/simplesaml/module.php/ubuntunetbroker/oidc/callback.php`
+
+### CoP Authorization Attributes
+
+`conf/simplesamlphp/broker.php` also lets you attach shared CoP authorization values centrally:
+
+- `groups`
+- `entitlements`
+- `languages`
+- `access_groups`
+- `functional_groups`
+- `institutional_groups`
+
+These are normalized into a consistent downstream profile by the custom broker filter:
+
+- `eduPersonEntitlement`
+- `isMemberOf`
+- `preferredLanguage`
+- `copAccessGroup`
+- `copFunctionalGroup`
+- `copInstitutionalGroup`
+
+That gives WordPress, Nextcloud, and future SPs one authoritative attribute set regardless of whether the user arrived through institutional SAML or Google.
+
 ## Make Targets
 
 | Target | Description |

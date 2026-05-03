@@ -343,7 +343,9 @@ $config = array(
      *
      */
     'module.enable' => array(
+        'multiauth' => true,
         'sqlauth' => true,
+        'ubuntunetbroker' => true,
     ),
 
     /*

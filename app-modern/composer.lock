@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "9feb48830ad25de1954352353f294752",
+    "content-hash": "aec41ef25a908ad3cfe5865674da86bc",
     "packages": [
         {
             "name": "doctrine/annotations",
@@ -7465,6 +7465,34 @@
             "time": "2026-01-23T21:00:41+00:00"
         },
         {
+            "name": "ubuntunet/simplesamlphp-module-ubuntunetbroker",
+            "version": "dev-fix/repo-version-main",
+            "dist": {
+                "type": "path",
+                "url": "../simplesamlphp/modules/ubuntunetbroker",
+                "reference": "110a33a4954dc41c7a75b25f02e973d85e4781bf"
+            },
+            "type": "simplesamlphp-module",
+            "extra": {
+                "ssp-module": {
+                    "name": "ubuntunetbroker"
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "SimpleSAML\\Module\\ubuntunetbroker\\": "lib/"
+                }
+            },
+            "license": [
+                "MIT"
+            ],
+            "description": "UbuntuNet broker module for upstream OIDC and broker-side attribute normalization",
+            "transport-options": {
+                "symlink": false,
+                "relative": true
+            }
+        },
+        {
             "name": "webmozart/assert",
             "version": "1.12.1",
             "source": {
@@ -7526,13 +7554,16 @@
     "packages-dev": [],
     "aliases": [],
     "minimum-stability": "stable",
-    "stability-flags": [],
+    "stability-flags": {
+        "ubuntunet/simplesamlphp-module-ubuntunetbroker": 20
+    },
     "prefer-stable": true,
     "prefer-lowest": false,
     "platform": {
         "php": ">=8.1",
         "ext-ctype": "*",
-        "ext-iconv": "*"
+        "ext-iconv": "*",
+        "ext-json": "*"
     },
     "platform-dev": [],
     "plugin-api-version": "2.2.0"

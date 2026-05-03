@@ -1,0 +1,16 @@
+{
+    "name": "ubuntunet/simplesamlphp-module-ubuntunetbroker",
+    "description": "UbuntuNet broker module for upstream OIDC and broker-side attribute normalization",
+    "type": "simplesamlphp-module",
+    "license": "MIT",
+    "autoload": {
+        "psr-4": {
+            "SimpleSAML\\Module\\ubuntunetbroker\\": "lib/"
+        }
+    },
+    "extra": {
+        "ssp-module": {
+            "name": "ubuntunetbroker"
+        }
+    }
+}

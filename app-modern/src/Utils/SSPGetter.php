@@ -13,6 +13,7 @@ class SSPGetter
     protected $em;
     private $translator;
     private $projectDir;
+    private $brokerConfig;
     private $database_host;
     private $database_name;
     private $database_user;
@@ -145,6 +146,10 @@ class SSPGetter
                     continue;
                 }
 
+                $brokerSettings = $this->getBrokerSettings($idp->getHostname());
+                $defaultScope = $this->resolveBrokerScope($idp, $brokerSettings);
+                $brokerAuthSource = $this->resolvePrimaryBrokerAuthSourceId($idp);
+
                 $result[$idp->getEntityId($this->samlidp_hostname)] = array(
                     'entityid' => $idp->getEntityId($this->samlidp_hostname),
                     'host' => $idp->getHostname().'.'.$this->samlidp_hostname,
@@ -152,7 +157,7 @@ class SSPGetter
                     'certificate' => $certDescriptor['relativeCert'],
                     'scope' => $idp->getScopes(),
                     'certData' => $certDescriptor['certData'],
-                    'auth' => 'as-'.$idp->getHostname(),
+                    'auth' => $brokerAuthSource,
                     'attributes.NameFormat' => 'urn:oasis:names:tc:SAML:2.0:attrname-format:uri',
                     'userid.attribute' => 'username',
                     'attributeencodings' => array(
@@ -225,6 +230,19 @@ class SSPGetter
                 }
 
                 # authproc dynamic parts
+                $result[$idp->getEntityId($this->samlidp_hostname)]['authproc'][9] = array(
+                    'class' => 'ubuntunetbroker:AttributeAugment',
+                    'idp' => $idp->getHostname(),
+                    'scope' => $defaultScope,
+                    'identifier_salt' => $brokerSettings['identifier_salt'],
+                    'affiliation' => $this->arrayizeConfigValue($brokerSettings['affiliation']),
+                    'groups' => $this->arrayizeConfigValue($brokerSettings['groups']),
+                    'entitlements' => $this->arrayizeConfigValue($brokerSettings['entitlements']),
+                    'languages' => $this->arrayizeConfigValue($brokerSettings['languages']),
+                    'access_groups' => $this->arrayizeConfigValue($brokerSettings['access_groups']),
+                    'functional_groups' => $this->arrayizeConfigValue($brokerSettings['functional_groups']),
+                    'institutional_groups' => $this->arrayizeConfigValue($brokerSettings['institutional_groups']),
+                );
                 $result[$idp->getEntityId($this->samlidp_hostname)]['authproc'][16] = array(
                     'class' => 'core:AttributeAdd',
                     'o' => $o_elements
@@ -310,17 +328,336 @@ class SSPGetter
             if ($idp === null) {
                 return $config;
             }
-            $id_p_id = $idp->getId();
-            $config['as-'.$idp->getHostname()] = array(
-                'sqlauth:SQL',
-                'dsn' => $this->database_type . ':host='.$this->database_host.';port='. $this->database_port. ';dbname='.$this->database_name,
-                'username' => $this->database_user,
-                'password' => $this->database_password,
-                'query' => "SELECT username, email, givenName, surName, display_name, affiliation, (CASE scope.value WHEN '@' THEN domain.domain ELSE CONCAT_WS('.',scope.value, domain.domain) END) AS scope FROM idp_internal_mysql_user, scope, domain WHERE (username = :username OR email = :username) AND password = :password AND idp_internal_mysql_user.scope_id=scope.id AND scope.domain_id=domain.id AND (domain.idp_id=$id_p_id OR domain.idp_id IS NULL);",
-                );
+            foreach ($this->buildBrokerAuthsources($idp) as $authSourceId => $authSourceConfig) {
+                $config[$authSourceId] = $authSourceConfig;
+            }
         }
 
         return $config;
+    }
+
+    private function buildBrokerAuthsources(IdP $idp)
+    {
+        $settings = $this->getBrokerSettings($idp->getHostname());
+        $sources = array();
+        $sourceChoices = array();
+        $enabledMethods = $this->getEnabledBrokerMethods($idp->getHostname(), $settings);
+
+        foreach ($enabledMethods as $method) {
+            $type = isset($method['type']) ? strtolower((string) $method['type']) : 'local';
+            $key = $this->sanitizeBrokerKey(isset($method['key']) ? (string) $method['key'] : $type);
+            $authSourceId = $this->buildBrokerAuthSourceId($idp->getHostname(), $key);
+            $label = isset($method['label']) && is_array($method['label']) ? $method['label'] : array('en' => ucfirst($key));
+
+            if ($type === 'local') {
+                $sources[$authSourceId] = $this->buildLocalSqlAuthsource($idp);
+            } elseif ($type === 'saml') {
+                $samlAuthsource = $this->buildUpstreamSamlAuthsource($method);
+                if ($samlAuthsource === null) {
+                    continue;
+                }
+                $sources[$authSourceId] = $samlAuthsource;
+            } elseif ($type === 'oidc') {
+                $oidcAuthsource = $this->buildOidcAuthsource($idp, $method);
+                if ($oidcAuthsource === null) {
+                    continue;
+                }
+                $sources[$authSourceId] = $oidcAuthsource;
+            } else {
+                continue;
+            }
+
+            $sourceChoices[$authSourceId] = array(
+                'text' => $label,
+            );
+        }
+
+        if (count($sources) === 0) {
+            $fallbackId = $this->buildBrokerAuthSourceId($idp->getHostname(), 'local');
+            $sources[$fallbackId] = $this->buildLocalSqlAuthsource($idp);
+            $sourceChoices[$fallbackId] = array(
+                'text' => array('en' => 'UbuntuNet account'),
+            );
+        }
+
+        if (count($sources) > 1) {
+            $brokerSourceId = $this->buildBrokerAuthSourceId($idp->getHostname(), 'broker');
+            $sources[$brokerSourceId] = array(
+                'multiauth:MultiAuth',
+                'sources' => $sourceChoices,
+                'preselect' => array_key_first($sourceChoices),
+            );
+        }
+
+        return $sources;
+    }
+
+    private function buildLocalSqlAuthsource(IdP $idp)
+    {
+        $id_p_id = $idp->getId();
+
+        return array(
+            'sqlauth:SQL',
+            'dsn' => $this->database_type . ':host='.$this->database_host.';port='. $this->database_port. ';dbname='.$this->database_name,
+            'username' => $this->database_user,
+            'password' => $this->database_password,
+            'query' => "SELECT username, email, givenName, surName, display_name, affiliation, (CASE scope.value WHEN '@' THEN domain.domain ELSE CONCAT_WS('.',scope.value, domain.domain) END) AS scope FROM idp_internal_mysql_user, scope, domain WHERE (username = :username OR email = :username) AND password = :password AND idp_internal_mysql_user.scope_id=scope.id AND scope.domain_id=domain.id AND (domain.idp_id=$id_p_id OR domain.idp_id IS NULL);",
+        );
+    }
+
+    private function buildUpstreamSamlAuthsource(array $method)
+    {
+        $idpEntityId = trim((string) ($method['idp_entity_id'] ?? ''));
+        $metadataUrl = trim((string) ($method['metadata_url'] ?? ''));
+
+        if ($idpEntityId === '' && $metadataUrl === '') {
+            return null;
+        }
+
+        return array(
+            'saml:SP',
+            'entityID' => null,
+            'idp' => $idpEntityId !== '' ? $idpEntityId : null,
+            'discoURL' => trim((string) ($method['discovery_url'] ?? '')) ?: null,
+            'metadataURL' => $metadataUrl !== '' ? $metadataUrl : null,
+            'privatekey' => 'attributes.' . $this->samlidp_hostname . '.key',
+            'certificate' => 'attributes.' . $this->samlidp_hostname . '.crt',
+            'sign.authnrequest' => true,
+            'sign.logout' => true,
+        );
+    }
+
+    private function buildOidcAuthsource(IdP $idp, array $method)
+    {
+        $clientId = trim((string) ($method['client_id'] ?? ''));
+        $clientSecret = trim((string) ($method['client_secret'] ?? ''));
+        $issuer = trim((string) ($method['issuer'] ?? ''));
+        $authorizationEndpoint = trim((string) ($method['authorization_endpoint'] ?? ''));
+        $tokenEndpoint = trim((string) ($method['token_endpoint'] ?? ''));
+        $userinfoEndpoint = trim((string) ($method['userinfo_endpoint'] ?? ''));
+
+        if ($clientId === '' || $clientSecret === '') {
+            return null;
+        }
+
+        if ($issuer === '' && ($authorizationEndpoint === '' || $tokenEndpoint === '')) {
+            return null;
+        }
+
+        $provider = trim((string) ($method['provider_name'] ?? $method['key'] ?? 'OIDC'));
+        $attributeMap = isset($method['attribute_map']) && is_array($method['attribute_map'])
+            ? $method['attribute_map']
+            : $this->getDefaultOidcAttributeMap();
+
+        return array(
+            'ubuntunetbroker:OidcGeneric',
+            'provider_name' => $provider,
+            'issuer' => $issuer,
+            'authorization_endpoint' => $authorizationEndpoint,
+            'token_endpoint' => $tokenEndpoint,
+            'userinfo_endpoint' => $userinfoEndpoint,
+            'client_id' => $clientId,
+            'client_secret' => $clientSecret,
+            'scopes' => isset($method['scopes']) && is_array($method['scopes']) ? $method['scopes'] : array('openid', 'email', 'profile'),
+            'client_auth_method' => trim((string) ($method['client_auth_method'] ?? 'client_secret_post')),
+            'attribute_map' => $attributeMap,
+            'prompt' => trim((string) ($method['prompt'] ?? 'select_account')),
+            'login_hint' => trim((string) ($method['login_hint'] ?? '')),
+        );
+    }
+
+    private function resolvePrimaryBrokerAuthSourceId(IdP $idp)
+    {
+        $settings = $this->getBrokerSettings($idp->getHostname());
+        $methods = $this->getEnabledBrokerMethods($idp->getHostname(), $settings);
+        $realMethodCount = 0;
+        $lastKey = 'local';
+
+        foreach ($methods as $method) {
+            $type = isset($method['type']) ? strtolower((string) $method['type']) : 'local';
+            if ($type === 'local') {
+                $realMethodCount++;
+                $lastKey = $this->sanitizeBrokerKey(isset($method['key']) ? (string) $method['key'] : 'local');
+                continue;
+            }
+
+            if ($type === 'saml') {
+                if (trim((string) ($method['idp_entity_id'] ?? '')) === '' && trim((string) ($method['metadata_url'] ?? '')) === '') {
+                    continue;
+                }
+            }
+
+            if ($type === 'oidc') {
+                if (
+                    trim((string) ($method['client_id'] ?? '')) === ''
+                    || trim((string) ($method['client_secret'] ?? '')) === ''
+                    || (
+                        trim((string) ($method['issuer'] ?? '')) === ''
+                        && trim((string) ($method['authorization_endpoint'] ?? '')) === ''
+                    )
+                ) {
+                    continue;
+                }
+            }
+
+            $realMethodCount++;
+            $lastKey = $this->sanitizeBrokerKey(isset($method['key']) ? (string) $method['key'] : $type);
+        }
+
+        if ($realMethodCount > 1) {
+            return $this->buildBrokerAuthSourceId($idp->getHostname(), 'broker');
+        }
+
+        return $this->buildBrokerAuthSourceId($idp->getHostname(), $lastKey);
+    }
+
+    private function getEnabledBrokerMethods($hostname, array $settings)
+    {
+        $methods = isset($settings['methods']) && is_array($settings['methods']) ? $settings['methods'] : array();
+        if (count($methods) === 0) {
+            $methods = array(
+                array(
+                    'key' => 'local',
+                    'type' => 'local',
+                    'enabled' => true,
+                    'label' => array('en' => 'UbuntuNet account'),
+                ),
+            );
+        }
+
+        $enabled = array();
+        foreach ($methods as $method) {
+            if (!is_array($method)) {
+                continue;
+            }
+            if (array_key_exists('enabled', $method) && !$method['enabled']) {
+                continue;
+            }
+            $enabled[] = $method;
+        }
+
+        if (count($enabled) === 0) {
+            $enabled[] = array(
+                'key' => 'local',
+                'type' => 'local',
+                'enabled' => true,
+                'label' => array('en' => 'UbuntuNet account'),
+            );
+        }
+
+        return $enabled;
+    }
+
+    private function buildBrokerAuthSourceId($hostname, $key)
+    {
+        return 'as-' . $hostname . '-' . $this->sanitizeBrokerKey($key);
+    }
+
+    private function sanitizeBrokerKey($key)
+    {
+        $sanitized = preg_replace('/[^a-z0-9]+/i', '-', strtolower((string) $key));
+        $sanitized = trim((string) $sanitized, '-');
+
+        return $sanitized !== '' ? $sanitized : 'source';
+    }
+
+    private function getBrokerSettings($hostname)
+    {
+        $config = $this->loadBrokerConfig();
+        $defaults = isset($config['_defaults']) && is_array($config['_defaults']) ? $config['_defaults'] : array();
+        $settings = isset($config[$hostname]) && is_array($config[$hostname]) ? $config[$hostname] : array();
+
+        $merged = $defaults;
+        foreach ($settings as $key => $value) {
+            if (is_array($value) && isset($merged[$key]) && is_array($merged[$key]) && array_keys($merged[$key]) !== range(0, count($merged[$key]) - 1)) {
+                $merged[$key] = array_merge($merged[$key], $value);
+            } else {
+                $merged[$key] = $value;
+            }
+        }
+
+        if (empty($merged['identifier_salt'])) {
+            $merged['identifier_salt'] = getenv('BROKER_IDENTIFIER_SALT') ?: 'change-me-before-production';
+        }
+
+        return $merged;
+    }
+
+    private function loadBrokerConfig()
+    {
+        if (is_array($this->brokerConfig)) {
+            return $this->brokerConfig;
+        }
+
+        $this->brokerConfig = array();
+        $configDir = getenv('SIMPLESAMLPHP_CONFIG_DIR');
+        $candidatePaths = array();
+
+        if (!empty($configDir)) {
+            $candidatePaths[] = rtrim($configDir, '/') . '/broker.php';
+        }
+        $candidatePaths[] = $this->projectDir . '/../conf/simplesamlphp/broker.php';
+
+        foreach ($candidatePaths as $path) {
+            if (is_readable($path)) {
+                $loaded = require $path;
+                if (is_array($loaded)) {
+                    $this->brokerConfig = $loaded;
+                    break;
+                }
+            }
+        }
+
+        return $this->brokerConfig;
+    }
+
+    private function resolveBrokerScope(IdP $idp, array $brokerSettings)
+    {
+        if (!empty($brokerSettings['default_scope'])) {
+            return trim((string) $brokerSettings['default_scope']);
+        }
+
+        $defaultScope = $idp->getDefaultScope($this->samlidp_hostname);
+        if (is_object($defaultScope) && method_exists($defaultScope, 'getFullScope')) {
+            return $defaultScope->getFullScope();
+        }
+        if (is_string($defaultScope) && $defaultScope !== '') {
+            return $defaultScope;
+        }
+
+        return $idp->getHostname() . '.' . $this->samlidp_hostname;
+    }
+
+    private function arrayizeConfigValue($value)
+    {
+        if (is_array($value)) {
+            return array_values(array_filter(array_map('strval', $value), 'strlen'));
+        }
+
+        if ($value === null) {
+            return array();
+        }
+
+        $value = trim((string) $value);
+        if ($value === '') {
+            return array();
+        }
+
+        return array($value);
+    }
+
+    private function getDefaultOidcAttributeMap()
+    {
+        return array(
+            'sub' => array('uid', 'oidc_sub'),
+            'email' => array('mail'),
+            'name' => array('displayName', 'display_name', 'cn'),
+            'given_name' => array('givenName'),
+            'family_name' => array('surName'),
+            'preferred_username' => array('username'),
+            'hd' => array('schacHomeOrganization'),
+            'locale' => array('preferredLanguage'),
+        );
     }
 
     public function addIdpAuditRecord($host, $username, $sp)
